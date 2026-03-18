@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpeedCoder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:         #1e1e2e; --bg2: #181825;
+    --surface:    #252537; --surface2: #2a2a3d;
+    --border:     #313149; --border-soft: #2a2a3f;
+    --teal:       #2dd4bf; --teal-dim: #1a7a70; --teal-soft: rgba(45,212,191,0.07);
+    --text:       #cdd6f4; --text-muted: #6c7086; --text-sub: #a6adc8;
+    --green:      #a6e3a1; --red: #f38ba8; --amber: #fab387; --blue: #89b4fa;
+    --radius:     10px;    --radius-sm: 6px;
+  }
+  /* ── HACKER THEME VARS (applied to body.hacker) ── */
+  body.hacker {
+    --bg:         #020c02; --bg2: #000800;
+    --surface:    #030f03; --surface2: #051005;
+    --border:     #0d3a0d; --border-soft: #0a2a0a;
+    --teal:       #39ff14; --teal-dim: #1a6b08; --teal-soft: rgba(57,255,20,0.07);
+    --text:       #b8f0b8; --text-muted: #3a6b3a; --text-sub: #7abf7a;
+    --green:      #39ff14; --red: #ff4444; --amber: #ffaa00; --blue: #00ff88;
+    font-family: 'Share Tech Mono', 'JetBrains Mono', monospace !important;
+  }
+
+  /* Scanlines overlay — only in hacker mode */
+  body.hacker::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px, transparent 3px,
+      rgba(0,0,0,0.22) 3px, rgba(0,0,0,0.22) 4px
+    );
+  }
+  /* CRT vignette */
+  body.hacker::after {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 9998;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.75) 100%);
+  }
+  /* Phosphor glow */
+  body.hacker .workspace { position: relative; z-index: 10; }
+
+  body.hacker .app-name { color: var(--teal); text-shadow: 0 0 12px rgba(57,255,20,0.6); animation: hacker-flicker 9s infinite; font-family: 'JetBrains Mono', monospace; }
+  @keyframes hacker-flicker { 0%,95%,100%{opacity:1} 96%{opacity:0.8} 97%{opacity:1} 98%{opacity:0.85} }
+
+  body.hacker .titlebar { background: #000800; border-bottom-color: #0d3a0d; }
+  body.hacker .mode-btn.active { background: var(--teal); color: #000800; box-shadow: 0 0 10px rgba(57,255,20,0.4); }
+  body.hacker .pill.teal { color: var(--teal); border-color: var(--teal-dim); text-shadow: 0 0 6px rgba(57,255,20,0.4); }
+
+  /* Hacker timer */
+  body.hacker .timer-display { color: var(--teal); text-shadow: 0 0 16px rgba(57,255,20,0.5); font-family: 'JetBrains Mono', monospace; }
+  body.hacker .timer-display.warn { color: var(--amber); text-shadow: 0 0 16px rgba(255,170,0,0.5); }
+  body.hacker .status-dot.running { background: var(--teal); box-shadow: 0 0 10px rgba(57,255,20,0.7); }
+
+  /* Hacker cards */
+  body.hacker .card, body.hacker .timer-card, body.hacker .filter-card, body.hacker .result-card {
+    border-radius: 4px;
+    border-color: var(--border);
+    box-shadow: 0 0 0 1px rgba(57,255,20,0.04), inset 0 0 40px rgba(57,255,20,0.02);
+  }
+  body.hacker .card-header, body.hacker .editor-footer, body.hacker .result-header {
+    background: rgba(0,20,0,0.8);
+    border-color: var(--border-soft);
+  }
+  body.hacker .card-title { color: var(--teal); letter-spacing: 0.12em; text-shadow: 0 0 6px rgba(57,255,20,0.3); }
+  body.hacker .problem-name { color: var(--teal); text-shadow: 0 0 8px rgba(57,255,20,0.3); font-family: 'JetBrains Mono', monospace; }
+  body.hacker .problem-desc { color: var(--text-sub); }
+  body.hacker .problem-desc code { background: #000800; color: var(--teal); border-color: var(--border); }
+  body.hacker .example { background: #000800; border-color: var(--border-soft); }
+  body.hacker .example-val { color: var(--text-sub); }
+
+  /* Hacker editor */
+  body.hacker #code-editor { color: var(--teal); caret-color: var(--teal); }
+  body.hacker #code-editor::selection { background: rgba(57,255,20,0.2); }
+  body.hacker .line-nums { background: #000800; color: var(--teal-dim); border-color: var(--border); }
+  body.hacker .retype-line-nums { background: #000800; color: var(--teal-dim); border-color: var(--border); }
+  body.hacker #retype-display { background: transparent; }
+  body.hacker .ch-correct { color: var(--teal); text-shadow: 0 0 4px rgba(57,255,20,0.4); }
+  body.hacker .ch-error   { color: var(--red); background: rgba(255,68,68,0.12); }
+  body.hacker .ch-cursor  { border-left-color: var(--teal); }
+  body.hacker .retype-progress-fill { background: var(--teal); box-shadow: 0 0 6px rgba(57,255,20,0.4); }
+
+  /* Hacker submit button */
+  body.hacker .btn-submit { background: transparent; color: var(--teal); border: 1px solid var(--teal-dim); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.1em; box-shadow: 0 0 10px rgba(57,255,20,0.15); }
+  body.hacker .btn-submit:hover { background: rgba(57,255,20,0.08); box-shadow: 0 0 20px rgba(57,255,20,0.3); border-color: var(--teal); }
+  body.hacker .btn-submit:disabled { background: transparent; color: var(--teal-dim); border-color: var(--border); box-shadow: none; }
+
+  /* Hacker filter */
+  body.hacker .filter-tag.active { color: var(--teal); border-color: var(--teal-dim); background: rgba(57,255,20,0.06); }
+  body.hacker .btn-new-problem:hover { color: var(--teal); border-color: var(--teal-dim); background: rgba(57,255,20,0.05); }
+
+  /* Hacker result — terminal output style */
+  body.hacker .result-card { border-radius: 4px; }
+  body.hacker .result-card.pass { border-color: rgba(57,255,20,0.4); box-shadow: 0 0 20px rgba(57,255,20,0.08); }
+  body.hacker .result-card.fail { border-color: rgba(255,68,68,0.4); }
+  body.hacker .verdict-text { font-family: 'JetBrains Mono', monospace; letter-spacing: 0.12em; }
+  body.hacker .result-card.pass .verdict-text { color: var(--teal); text-shadow: 0 0 10px rgba(57,255,20,0.5); }
+  body.hacker .stat-value { font-family: 'JetBrains Mono', monospace; }
+  body.hacker .stat-value.good { color: var(--teal); text-shadow: 0 0 8px rgba(57,255,20,0.4); }
+  body.hacker .feedback-text { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-sub); }
+  body.hacker .feedback-text::before { content: '> '; color: var(--teal-dim); }
+  body.hacker .btn-secondary { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: var(--text-muted); border-color: var(--border); }
+  body.hacker .btn-secondary:hover { color: var(--teal); border-color: var(--teal-dim); background: rgba(57,255,20,0.05); }
+
+  /* Hacker landing */
+  body.hacker .landing-logo { color: var(--teal); text-shadow: 0 0 20px rgba(57,255,20,0.6); font-family: 'JetBrains Mono', monospace; }
+  body.hacker .selector-card.selected { border-color: var(--teal); background: rgba(57,255,20,0.05); }
+  body.hacker .selector-card:hover { border-color: var(--teal-dim); background: rgba(57,255,20,0.03); }
+  body.hacker .level-btn.selected-h { border-color: var(--teal); color: var(--teal); background: rgba(57,255,20,0.07); text-shadow: 0 0 8px rgba(57,255,20,0.4); box-shadow: 0 0 12px rgba(57,255,20,0.15); }
+  body.hacker .btn-start { background: transparent; color: var(--teal); border: 1px solid var(--teal); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.15em; box-shadow: 0 0 16px rgba(57,255,20,0.2); }
+  body.hacker .btn-start:hover { background: rgba(57,255,20,0.08); box-shadow: 0 0 24px rgba(57,255,20,0.4); }
+
+  /* Loading bar hacker */
+  body.hacker .loading-bar::after { background: linear-gradient(90deg, transparent, var(--teal), transparent); }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg2); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+
+  /* ── TITLEBAR ── */
+  .titlebar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 1.25rem; height: 42px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 200; }
+  .titlebar-left { display: flex; align-items: center; gap: 0.75rem; }
+  .app-name { font-weight: 700; font-size: 14px; color: var(--teal); letter-spacing: 0.04em; cursor: pointer; }
+  .titlebar-sep { width: 1px; height: 16px; background: var(--border); }
+  .crumb { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; }
+  .crumb span { color: var(--text-sub); }
+  .titlebar-right { display: flex; align-items: center; gap: 0.5rem; }
+  .mode-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 3px; gap: 2px; }
+  .mode-btn { font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600; padding: 3px 12px; border-radius: 16px; border: none; cursor: pointer; transition: all 0.2s; color: var(--text-muted); background: transparent; }
+  .mode-btn.active { background: var(--teal); color: #0d1117; box-shadow: 0 1px 6px rgba(45,212,191,0.3); }
+  .mode-btn:not(.active):hover { color: var(--text-sub); }
+  .pill { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--text-muted); background: var(--surface); }
+  .pill.teal { color: var(--teal); border-color: var(--teal-dim); background: var(--teal-soft); }
+
+  /* ── WORKSPACE ── */
+  .workspace { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; display: flex; flex-direction: column; gap: 1rem; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  /* ── LANDING / MODE SELECTOR ── */
+  #screen-landing {
+    display: flex; align-items: center; justify-content: center;
+    min-height: calc(100vh - 42px);
+    padding: 2rem 1.25rem;
+  }
+  .landing-inner { max-width: 600px; width: 100%; text-align: center; animation: fadeUp 0.4s ease both; }
+  .landing-logo { font-size: 36px; font-family: Impact, 'Arial Narrow', sans-serif; font-weight: 400; color: var(--teal); letter-spacing: 0.08em; margin-bottom: 0.4rem; }
+  .landing-sub  { font-size: 13px; color: var(--text-muted); margin-bottom: 2.5rem; }
+
+  .selector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+  .selector-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1.25rem; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.12s;
+    text-align: left;
+  }
+  .selector-card:hover { border-color: var(--teal-dim); background: rgba(45,212,191,0.04); transform: translateY(-2px); }
+  .selector-card.selected { border-color: var(--teal); background: var(--teal-soft); }
+  .selector-card-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }
+  .selector-card-desc  { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .selector-card-icon  { font-size: 22px; margin-bottom: 0.5rem; }
+
+  .level-row { display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.75rem; flex-wrap: wrap; }
+  .level-btn {
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+    padding: 6px 18px; border-radius: 20px; border: 1px solid var(--border);
+    color: var(--text-muted); background: var(--surface); cursor: pointer; transition: all 0.15s;
+  }
+  .level-btn:hover { border-color: var(--text-muted); color: var(--text-sub); }
+  .level-btn.selected-b { border-color: #a6e3a1; color: var(--green); background: rgba(166,227,161,0.08); }
+  .level-btn.selected-i { border-color: #fab387; color: var(--amber); background: rgba(250,179,135,0.08); }
+  .level-btn.selected-p { border-color: #f38ba8; color: var(--red); background: rgba(243,139,168,0.08); }
+
+  .btn-start {
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700;
+    color: #0d1117; background: var(--teal); border: none; border-radius: var(--radius-sm);
+    padding: 0.7rem 2.5rem; cursor: pointer; transition: all 0.15s;
+    box-shadow: 0 2px 16px rgba(45,212,191,0.3);
+  }
+  .btn-start:hover { background: #5eead4; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(45,212,191,0.4); }
+  .btn-start:disabled { background: var(--teal-dim); color: rgba(0,0,0,0.4); cursor: not-allowed; box-shadow: none; transform: none; }
+
+  /* ── TIMER CARD ── */
+  .timer-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; animation: fadeUp 0.3s ease both; }
+  .timer-left { display: flex; align-items: center; gap: 1rem; }
+  .timer-display { font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 600; color: var(--teal); letter-spacing: 0.05em; line-height: 1; transition: color 0.3s; min-width: 110px; }
+  .timer-display.warn { color: var(--amber); animation: soft-pulse 1s ease-in-out infinite; }
+  @keyframes soft-pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
+  .timer-meta { display: flex; flex-direction: column; gap: 3px; }
+  .timer-label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .timer-hint  { font-size: 11px; color: var(--text-muted); }
+  .timer-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .time-limit-label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .time-limit-val { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-sub); }
+  .status-indicator { display: flex; align-items: center; gap: 0.5rem; font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; transition: all 0.3s; background: var(--text-muted); }
+  .status-dot.running { background: var(--teal); box-shadow: 0 0 8px rgba(45,212,191,0.5); animation: dot-pulse 1.5s ease-in-out infinite; }
+  .status-dot.done    { background: var(--green); box-shadow: 0 0 8px rgba(166,227,161,0.4); }
+  .status-dot.expired { background: var(--red);   box-shadow: 0 0 8px rgba(243,139,168,0.4); }
+  @keyframes dot-pulse { 0%,100%{box-shadow:0 0 6px rgba(45,212,191,0.5)} 50%{box-shadow:0 0 14px rgba(45,212,191,0.8)} }
+
+  /* ── FILTER CARD ── */
+  .filter-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; animation: fadeUp 0.3s ease both 0.04s; }
+  .filter-label { font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+  .filter-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; flex: 1; }
+  .filter-tag { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); color: var(--text-muted); background: var(--bg2); cursor: pointer; transition: all 0.15s; user-select: none; }
+  .filter-tag.active { color: var(--teal); border-color: var(--teal-dim); background: var(--teal-soft); }
+  .filter-tag:hover:not(.active) { border-color: var(--text-muted); color: var(--text-sub); }
+  .btn-new-problem { font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600; color: var(--text-muted); background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .btn-new-problem:hover { border-color: var(--teal-dim); color: var(--teal); background: var(--teal-soft); }
+
+  /* ── SHARED CARD ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; animation: fadeUp 0.3s ease both; }
+  .card-header { display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem 1.1rem; border-bottom: 1px solid var(--border-soft); background: var(--surface2); }
+  .card-title { font-size: 12px; font-weight: 600; color: var(--text-sub); letter-spacing: 0.03em; text-transform: uppercase; flex: 1; }
+  .tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; letter-spacing: 0.04em; }
+  .tag-teal  { background: var(--teal-soft); color: var(--teal); border: 1px solid var(--teal-dim); }
+  .tag-green { background: rgba(166,227,161,0.08); color: var(--green); border: 1px solid rgba(166,227,161,0.25); }
+  .tag-blue  { background: rgba(137,180,250,0.08); color: var(--blue);  border: 1px solid rgba(137,180,250,0.25); }
+  .tag-amber { background: rgba(250,179,135,0.08); color: var(--amber); border: 1px solid rgba(250,179,135,0.25); }
+  .tag-red   { background: rgba(243,139,168,0.08); color: var(--red);   border: 1px solid rgba(243,139,168,0.25); }
+  .card-body { padding: 1.1rem 1.25rem; }
+
+  /* ── PROBLEM ── */
+  .problem-name { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 0.5rem; }
+  .problem-desc { font-size: 13.5px; line-height: 1.75; color: var(--text-sub); margin-bottom: 1rem; }
+  .problem-desc code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--bg2); color: var(--teal); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+  .examples-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .example { background: var(--bg2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: 0.65rem 0.9rem; }
+  .example-label { font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.3rem; }
+  .example-val { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+
+  /* ── LOGIC EDITOR ── */
+  .editor-container { display: flex; background: var(--bg2); min-height: 260px; }
+  .line-nums { padding: 1rem 0.75rem; background: var(--surface2); color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; text-align: right; user-select: none; min-width: 50px; border-right: 1px solid var(--border-soft); flex-shrink: 0; white-space: pre; overflow: hidden; }
+  #code-editor { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; padding: 1rem 1rem 1rem 0.9rem; resize: none; min-height: 260px; caret-color: var(--teal); tab-size: 4; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+  #code-editor::selection { background: rgba(45,212,191,0.18); }
+  #code-editor::placeholder { color: var(--text-muted); opacity: 0.6; }
+  .editor-footer { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 1.1rem; border-top: 1px solid var(--border-soft); background: var(--surface2); }
+  .editor-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); display: flex; gap: 1.25rem; }
+  .editor-meta span { color: var(--text-sub); }
+  .btn-submit { font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; color: #0d1117; background: var(--teal); border: none; border-radius: var(--radius-sm); padding: 0.5rem 1.4rem; cursor: pointer; transition: all 0.15s; box-shadow: 0 2px 12px rgba(45,212,191,0.25); }
+  .btn-submit:hover { background: #5eead4; box-shadow: 0 2px 20px rgba(45,212,191,0.4); transform: translateY(-1px); }
+  .btn-submit:active { transform: translateY(0); }
+  .btn-submit:disabled { background: var(--teal-dim); color: rgba(0,0,0,0.4); cursor: not-allowed; box-shadow: none; transform: none; }
+  .loading-bar { display: none; height: 2px; background: var(--border); overflow: hidden; position: relative; }
+  .loading-bar::after { content: ''; position: absolute; top: 0; left: -45%; width: 45%; height: 100%; background: linear-gradient(90deg,transparent,var(--teal),transparent); animation: sweep 1s linear infinite; }
+  @keyframes sweep { to { left: 145%; } }
+
+  /* ── RETYPE AREA ── */
+  /* KEY FIX: both display and textarea scroll together inside a fixed-height scrollable wrapper */
+  .retype-meta-row { display: flex; gap: 1.25rem; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
+  .retype-meta-row span { color: var(--teal); }
+  .retype-meta-row .err { color: var(--red); }
+  .retype-progress-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin: 0.6rem 0 0; }
+  .retype-progress-fill { height: 100%; background: var(--teal); border-radius: 2px; transition: width 0.1s; width: 0%; }
+
+  .retype-outer {
+    display: flex;
+    background: var(--bg2);
+  }
+  .retype-line-nums {
+    padding: 1rem 0.75rem; background: var(--surface2); color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7;
+    text-align: right; user-select: none; min-width: 50px;
+    border-right: 1px solid var(--border-soft); flex-shrink: 0;
+    white-space: pre; overflow: hidden;
+  }
+  /* The scrollable zone that holds both display and textarea */
+  .retype-scroll-zone {
+    flex: 1;
+    position: relative;
+    overflow-y: auto;
+    overflow-x: auto;
+    max-height: 380px;  /* tall enough to show most snippets, scrollable if longer */
+    cursor: text;
+  }
+  /* Rendered colored chars — sits behind, not interactive */
+  #retype-display {
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7;
+    padding: 1rem 1rem 1rem 0.9rem;
+    white-space: pre;
+    pointer-events: none; user-select: none;
+    min-width: max-content;
+  }
+  .ch-pending { color: var(--text-muted); }
+  .ch-correct { color: var(--teal); }
+  .ch-error   { color: var(--red); background: rgba(243,139,168,0.12); border-radius: 2px; }
+  /* Cursor: a blinking left-border on the next pending char */
+  .ch-cursor { border-left: 2px solid var(--teal); margin-left: -2px; animation: cblink 1s step-end infinite; }
+  @keyframes cblink { 0%,100%{border-color:var(--teal)} 50%{border-color:transparent} }
+
+  /* Invisible textarea — same size/padding as display, stacked on top */
+  #retype-input {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    min-height: 100%;
+    background: transparent; border: none; outline: none;
+    color: transparent; caret-color: transparent;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7;
+    padding: 1rem 1rem 1rem 0.9rem;
+    resize: none; white-space: pre;
+    overflow: hidden; /* scroll handled by parent */
+    tab-size: 4; z-index: 2; cursor: text;
+  }
+
+  /* ── RESULT CARD ── */
+  .result-card { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; animation: fadeUp 0.3s ease both; }
+  .result-card.pass { border-color: rgba(166,227,161,0.35); }
+  .result-card.fail { border-color: rgba(243,139,168,0.35); }
+  .result-header { padding: 0.9rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; border-bottom: 1px solid var(--border-soft); background: var(--surface2); }
+  .verdict-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .result-card.pass .verdict-icon { background: rgba(166,227,161,0.15); }
+  .result-card.fail .verdict-icon { background: rgba(243,139,168,0.12); }
+  .verdict-text { font-size: 15px; font-weight: 700; }
+  .result-card.pass .verdict-text { color: var(--green); }
+  .result-card.fail .verdict-text { color: var(--red); }
+  .verdict-sub { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+  .stats-row { display: grid; grid-template-columns: repeat(3,1fr); border-bottom: 1px solid var(--border-soft); }
+  .stat { padding: 1rem 1.25rem; border-right: 1px solid var(--border-soft); text-align: center; }
+  .stat:last-child { border-right: none; }
+  .stat-label { font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.35rem; }
+  .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 600; color: var(--teal); line-height: 1; }
+  .stat-value.good { color: var(--green); } .stat-value.okay { color: var(--amber); } .stat-value.poor { color: var(--red); }
+  .feedback-row { padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border-soft); }
+  .feedback-text { font-size: 13px; color: var(--text-sub); line-height: 1.6; }
+  .result-actions { padding: 0.75rem 1.25rem; display: flex; justify-content: flex-end; gap: 0.6rem; }
+  .btn-secondary { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; color: var(--text-sub); background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.45rem 1.1rem; cursor: pointer; transition: all 0.15s; }
+  .btn-secondary:hover { background: var(--surface2); border-color: var(--teal-dim); color: var(--teal); }
+  .error-banner { display: none; background: rgba(243,139,168,0.08); border: 1px solid rgba(243,139,168,0.25); border-radius: var(--radius-sm); padding: 0.6rem 1rem; font-size: 12px; color: var(--red); }
+
+  .mode-section { display: none; }
+  .mode-section.active { display: contents; }
+
+  /* screens */
+  #screen-app { display: none; }
+  #screen-app.visible { display: block; }
+</style>
+</head>
+<body>
+
+<!-- TITLEBAR -->
+<div class="titlebar">
+  <div class="titlebar-left">
+    <div class="app-name" onclick="goHome()">⚡ SpeedCoder</div>
+    <div class="titlebar-sep"></div>
+    <div class="crumb" id="titlebar-crumb">Select Mode</div>
+  </div>
+  <div class="titlebar-right" id="titlebar-right" style="display:none;">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-logic"  onclick="switchMode('logic')">Logic</button>
+      <button class="mode-btn"        id="btn-retype" onclick="switchMode('retype')">Retype</button>
+    </div>
+    <span class="pill teal" id="pill-mode">Logic Mode</span>
+    <span class="pill"      id="pill-level">Beginner</span>
+  </div>
+</div>
+
+<!-- ══ LANDING SCREEN ══ -->
+<div id="screen-landing">
+  <div class="landing-inner">
+    <div class="landing-logo">SpeedCoder</div>
+    <div class="landing-sub">C/C++ · AI-judged · no execution sandbox needed</div>
+
+    <div class="selector-grid">
+      <div class="selector-card selected" id="card-logic" onclick="selectMode('logic')">
+        <div class="selector-card-icon">🧠</div>
+        <div class="selector-card-title">Logic Mode</div>
+        <div class="selector-card-desc">Solve a C++ problem from scratch. AI evaluates your logic and speed.</div>
+      </div>
+      <div class="selector-card" id="card-retype" onclick="selectMode('retype')">
+        <div class="selector-card-icon">⌨️</div>
+        <div class="selector-card-title">Retype Mode</div>
+        <div class="selector-card-desc">Copy a C++ snippet exactly. Builds muscle memory and typing speed.</div>
+      </div>
+    </div>
+
+    <div class="level-row">
+      <button class="level-btn selected-b" id="lvl-Beginner"     onclick="selectLevel('Beginner')">Beginner</button>
+      <button class="level-btn"            id="lvl-Intermediate" onclick="selectLevel('Intermediate')">Intermediate</button>
+      <button class="level-btn"            id="lvl-Pro"          onclick="selectLevel('Pro')">Pro</button>
+      <button class="level-btn"            id="lvl-Hacker"       onclick="selectLevel('Hacker')">⚠ Hacker</button>
+    </div>
+
+    <button class="btn-start" id="btn-start" onclick="startSession()">Start →</button>
+  </div>
+</div>
+
+<!-- ══ APP SCREEN ══ -->
+<div id="screen-app">
+<div class="workspace">
+
+  <!-- TIMER -->
+  <div class="timer-card">
+    <div class="timer-left">
+      <div class="timer-display" id="timer">00:00</div>
+      <div class="timer-meta">
+        <div class="timer-label">Elapsed Time</div>
+        <div class="timer-hint">Starts on your first keypress</div>
+      </div>
+    </div>
+    <div class="timer-right">
+      <div class="time-limit-label">Time Limit</div>
+      <div class="time-limit-val" id="time-limit-val">—</div>
+    </div>
+    <div class="status-indicator" style="margin-left:1.5rem;">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Waiting for input</span>
+    </div>
+  </div>
+
+  <!-- FILTER -->
+  <div class="filter-card">
+    <span class="filter-label">Topics</span>
+    <div class="filter-tags" id="filter-tags"></div>
+    <button class="btn-new-problem" id="btn-new-problem">New Problem ↺</button>
+  </div>
+
+  <!-- ── LOGIC MODE ── -->
+  <div class="mode-section active" id="section-logic">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Problem</div>
+        <span class="tag tag-blue"  id="l-prob-id">—</span>
+        <span class="tag"           id="l-prob-level">—</span>
+        <div id="l-prob-topics" style="display:flex;gap:0.35rem;flex-wrap:wrap;"></div>
+      </div>
+      <div class="card-body">
+        <div class="problem-name"  id="l-prob-name">—</div>
+        <div class="problem-desc"  id="l-prob-desc">—</div>
+        <div class="examples-grid" id="l-examples"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">solution.cpp</div>
+        <span class="tag tag-teal">C++</span>
+      </div>
+      <div class="editor-container">
+        <div class="line-nums" id="line-nums">1</div>
+        <textarea id="code-editor" spellcheck="false" autocorrect="off" autocapitalize="off"
+          placeholder="// Start typing to begin the timer..."></textarea>
+      </div>
+      <div class="loading-bar" id="loading-bar"></div>
+      <div class="editor-footer">
+        <div class="editor-meta">Ln <span id="line-count">1</span> &nbsp;|&nbsp; Chars <span id="char-count">0</span></div>
+        <button class="btn-submit" id="submit-btn">Submit ↗</button>
+      </div>
+    </div>
+
+    <div class="error-banner" id="error-banner"></div>
+
+    <div class="result-card" id="logic-result">
+      <div class="result-header">
+        <div class="verdict-icon" id="l-verdict-icon"></div>
+        <div class="verdict-text" id="l-verdict-text"></div>
+        <div class="verdict-sub"  id="l-verdict-sub"></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-label">Time Taken</div><div class="stat-value" id="l-res-time">—</div></div>
+        <div class="stat"><div class="stat-label">Logic Score</div><div class="stat-value" id="l-res-logic">—</div></div>
+        <div class="stat"><div class="stat-label">SpeedCoder Score</div><div class="stat-value" id="l-res-final">—</div></div>
+      </div>
+      <div class="feedback-row"><div class="feedback-text" id="l-feedback"></div></div>
+      <div class="result-actions">
+        <button class="btn-secondary" id="btn-next-problem">Next Problem ↺</button>
+        <button class="btn-secondary" id="logic-try-again">Try Again</button>
+      </div>
+    </div>
+
+  </div><!-- /logic -->
+
+  <!-- ── RETYPE MODE ── -->
+  <div class="mode-section" id="section-retype">
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Snippet</div>
+        <span class="tag tag-blue" id="r-snip-id">—</span>
+        <span class="tag"          id="r-snip-level">—</span>
+        <div id="r-snip-topics" style="display:flex;gap:0.35rem;flex-wrap:wrap;"></div>
+      </div>
+      <div class="card-body" style="padding-bottom:0.5rem;">
+        <div class="problem-name" id="r-snip-name">—</div>
+        <div class="problem-desc" style="margin-bottom:0;">
+          Retype the snippet below exactly — character by character. Paste is disabled.
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title" id="r-snip-file">snippet.cpp</div>
+        <span class="tag tag-teal">C++</span>
+        <div class="retype-meta-row">
+          WPM&nbsp;<span id="live-wpm">—</span>&nbsp;&nbsp;
+          Acc&nbsp;<span id="live-acc">—</span>&nbsp;&nbsp;
+          Errors&nbsp;<span class="err" id="live-errors">0</span>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0.6rem 1.1rem 0;">
+        <div class="retype-progress-bar"><div class="retype-progress-fill" id="retype-progress-fill"></div></div>
+      </div>
+      <div class="retype-outer">
+        <div class="retype-line-nums" id="retype-line-nums">1</div>
+        <!-- single scrollable zone: display behind, textarea on top -->
+        <div class="retype-scroll-zone" id="retype-scroll-zone"
+             onclick="document.getElementById('retype-input').focus()">
+          <div id="retype-display"></div>
+          <textarea id="retype-input" spellcheck="false" autocorrect="off"
+            autocapitalize="off" autocomplete="off" onpaste="return false;"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-card" id="retype-result">
+      <div class="result-header">
+        <div class="verdict-icon" id="r-verdict-icon"></div>
+        <div class="verdict-text" id="r-verdict-text"></div>
+        <div class="verdict-sub"  id="r-verdict-sub"></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-label">WPM</div><div class="stat-value" id="r-wpm">—</div></div>
+        <div class="stat"><div class="stat-label">Accuracy</div><div class="stat-value" id="r-acc">—</div></div>
+        <div class="stat"><div class="stat-label">Errors</div><div class="stat-value" id="r-errors">—</div></div>
+      </div>
+      <div class="feedback-row"><div class="feedback-text" id="r-feedback"></div></div>
+      <div class="result-actions">
+        <button class="btn-secondary" id="btn-next-snippet">Next Snippet ↺</button>
+        <button class="btn-secondary" id="retype-try-again">Try Again</button>
+      </div>
+    </div>
+
+  </div><!-- /retype -->
+
+</div><!-- /workspace -->
+</div><!-- /screen-app -->
+
+<script>
+// ═══════════════════════════════════════
+// DATA BANK
+// ═══════════════════════════════════════
+const PROBLEMS = [
+  { id:'prob-001', level:'Beginner',     topics:['arrays','hash map'],
+    name:'Two Sum',
+    desc:'Given an integer array <code>nums</code> and an integer <code>target</code>, return the <strong>indices</strong> of the two numbers that add up to <code>target</code>.<br><br>Exactly one valid answer exists. You may not use the same element twice. Return <code>std::vector&lt;int&gt;</code>.',
+    examples:[{input:'nums = [2, 7, 11, 15]\ntarget = 9',output:'[0, 1]'},{input:'nums = [3, 2, 4]\ntarget = 6',output:'[1, 2]'}],
+    evalPrompt:'Two Sum: given array nums and integer target, return indices of two numbers summing to target. Return std::vector<int>.' },
+  { id:'prob-002', level:'Beginner',     topics:['arrays','loops'],
+    name:'Find Maximum',
+    desc:'Given a non-empty integer array <code>nums</code>, return the <strong>maximum element</strong>.<br><br>Do not use <code>std::max_element</code> — implement the linear scan yourself. Return an <code>int</code>.',
+    examples:[{input:'nums = [3,1,4,1,5,9]',output:'9'},{input:'nums = [-4,-1,-7]',output:'-1'}],
+    evalPrompt:'Find Maximum: given non-empty integer array nums, return maximum element using manual linear scan (no std::max_element). Return int.' },
+  { id:'prob-003', level:'Beginner',     topics:['strings','loops'],
+    name:'Reverse a String',
+    desc:'Given a <code>std::string s</code>, return it <strong>reversed</strong>.<br><br>Do not use <code>std::reverse</code>. Return <code>std::string</code>.',
+    examples:[{input:'s = "hello"',output:'"olleh"'},{input:'s = "abcdef"',output:'"fedcba"'}],
+    evalPrompt:'Reverse a String: given std::string s, return it reversed without std::reverse. Return std::string.' },
+  { id:'prob-004', level:'Intermediate', topics:['arrays','sliding window'],
+    name:'Maximum Subarray',
+    desc:'Given integer array <code>nums</code>, find the contiguous subarray with the largest sum and return its sum. Use <strong>Kadane\'s algorithm</strong> — O(n). Return <code>int</code>.',
+    examples:[{input:'nums = [-2,1,-3,4,-1,2,1,-5,4]',output:'6'},{input:'nums = [1]',output:'1'}],
+    evalPrompt:'Maximum Subarray (Kadane\'s): given array nums, return largest contiguous subarray sum. Must be O(n). Return int.' },
+  { id:'prob-005', level:'Intermediate', topics:['strings','hash map'],
+    name:'Valid Anagram',
+    desc:'Given two strings <code>s</code> and <code>t</code>, return <code>true</code> if <code>t</code> is an anagram of <code>s</code>. Return <code>bool</code>.',
+    examples:[{input:'s="anagram", t="nagaram"',output:'true'},{input:'s="rat", t="car"',output:'false'}],
+    evalPrompt:'Valid Anagram: given strings s and t, return true if t is an anagram of s. Return bool.' },
+  { id:'prob-006', level:'Intermediate', topics:['linked list','pointers'],
+    name:'Reverse Linked List',
+    desc:'Given <code>head</code> of a singly linked list, reverse it iteratively using three pointers. Return <code>ListNode*</code>.',
+    examples:[{input:'[1→2→3→4→5]',output:'[5→4→3→2→1]'},{input:'[1→2]',output:'[2→1]'}],
+    evalPrompt:'Reverse a Linked List: given head of a singly linked list, reverse it iteratively with three pointers. Return ListNode*.' },
+  { id:'prob-007', level:'Intermediate', topics:['recursion','arrays'],
+    name:'Binary Search',
+    desc:'Given sorted array <code>nums</code> and a target, return the <strong>index</strong> of target or <code>-1</code> if not found. O(log n) required. Return <code>int</code>.',
+    examples:[{input:'nums=[1,3,5,7,9,11], target=7',output:'3'},{input:'nums=[1,3,5,7,9], target=4',output:'-1'}],
+    evalPrompt:'Binary Search: given sorted array nums and target, return index or -1. Must be O(log n). Return int.' },
+  { id:'prob-008', level:'Pro',          topics:['trees','recursion'],
+    name:'Max Tree Depth',
+    desc:'Given the <code>root</code> of a binary tree, return its <strong>maximum depth</strong>. Use recursion. Return <code>int</code>.',
+    examples:[{input:'root = [3,9,20,null,null,15,7]',output:'3'},{input:'root = [1,null,2]',output:'2'}],
+    evalPrompt:'Maximum Depth of Binary Tree: given root (TreeNode*), return max depth recursively. Return int.' },
+  { id:'prob-009', level:'Pro',          topics:['dynamic programming','arrays'],
+    name:'Climbing Stairs',
+    desc:'A staircase with <code>n</code> steps, you can climb 1 or 2 at a time. Return the number of <strong>distinct ways</strong> to reach the top. Use DP. Return <code>int</code>.',
+    examples:[{input:'n = 2',output:'2'},{input:'n = 3',output:'3'}],
+    evalPrompt:'Climbing Stairs: n steps, can climb 1 or 2, return distinct ways to reach top using DP. Return int.' },
+  { id:'prob-010', level:'Pro',          topics:['hash map','arrays'],
+    name:'Group Anagrams',
+    desc:'Given array of strings <code>strs</code>, group anagrams together. Return <code>vector&lt;vector&lt;string&gt;&gt;</code>.',
+    examples:[{input:'["eat","tea","tan","ate","nat","bat"]',output:'[["bat"],["nat","tan"],["ate","eat","tea"]]'},{input:'[""]',output:'[[""]]'}],
+    evalPrompt:'Group Anagrams: given array of strings strs, group anagrams. Return vector<vector<string>>.' },
+];
+
+const SNIPPETS = [
+  { id:'snip-001', level:'Beginner',     topics:['arrays','loops'],     name:'Bubble Sort',      file:'bubble_sort.cpp',
+    code:`void bubbleSort(int arr[], int n) {\n    for (int i = 0; i < n - 1; i++) {\n        for (int j = 0; j < n - i - 1; j++) {\n            if (arr[j] > arr[j + 1]) {\n                int temp = arr[j];\n                arr[j] = arr[j + 1];\n                arr[j + 1] = temp;\n            }\n        }\n    }\n}` },
+  { id:'snip-002', level:'Beginner',     topics:['strings','loops'],    name:'String Length',    file:'str_length.cpp',
+    code:`int strLength(const char* s) {\n    int len = 0;\n    while (s[len] != '\\0') {\n        len++;\n    }\n    return len;\n}` },
+  { id:'snip-003', level:'Intermediate', topics:['recursion'],          name:'Factorial',        file:'factorial.cpp',
+    code:`long long factorial(int n) {\n    if (n < 0) return -1;\n    if (n == 0 || n == 1) return 1;\n    return n * factorial(n - 1);\n}` },
+  { id:'snip-004', level:'Intermediate', topics:['pointers','linked list'], name:'Linked List Insert', file:'list_insert.cpp',
+    code:`struct Node {\n    int data;\n    Node* next;\n};\n\nvoid insertFront(Node*& head, int val) {\n    Node* node = new Node();\n    node->data = val;\n    node->next = head;\n    head = node;\n}` },
+  { id:'snip-005', level:'Pro',          topics:['trees','recursion'],  name:'BST Insert',       file:'bst_insert.cpp',
+    code:`struct TreeNode {\n    int val;\n    TreeNode* left;\n    TreeNode* right;\n};\n\nTreeNode* insert(TreeNode* root, int val) {\n    if (!root) return new TreeNode{val, nullptr, nullptr};\n    if (val < root->val)\n        root->left  = insert(root->left,  val);\n    else\n        root->right = insert(root->right, val);\n    return root;\n}` },
+];
+
+// Time limits per level (seconds): Beginner 300, Intermediate 180, Pro 120, Hacker 90
+const TIME_LIMITS = { Beginner: 300, Intermediate: 180, Pro: 120, Hacker: 90 };
+
+// Hacker-only problems
+const HACKER_PROBLEMS = [
+  { id:'hack-001', level:'Hacker', topics:['bit manipulation','arrays'],
+    name:'Single Number',
+    desc:'Given a non-empty array <code>nums</code> where every element appears twice except one, return that single element.<br><br>Use <strong>XOR</strong> — O(n) time, O(1) space. No hash maps. Return <code>int</code>.',
+    examples:[{input:'nums = [4, 1, 2, 1, 2]',output:'4'},{input:'nums = [2, 2, 1]',output:'1'}],
+    evalPrompt:'Single Number: given array where every element appears twice except one, return the single element using XOR. O(n) time O(1) space required. No hash maps. Return int.' },
+  { id:'hack-002', level:'Hacker', topics:['strings','bit manipulation'],
+    name:'Count Set Bits',
+    desc:'Given a 32-bit unsigned integer <code>n</code>, return the number of <strong>1 bits</strong> (Hamming weight).<br><br>Use the <strong>n &amp; (n-1)</strong> trick — loop only runs once per set bit. Return <code>int</code>.',
+    examples:[{input:'n = 11 (binary: 1011)',output:'3'},{input:'n = 128 (binary: 10000000)',output:'1'}],
+    evalPrompt:'Count Set Bits (Hamming weight): given 32-bit unsigned int n, return count of 1 bits using n & (n-1) trick. Return int.' },
+  { id:'hack-003', level:'Hacker', topics:['dynamic programming','strings'],
+    name:'Longest Common Subsequence',
+    desc:'Given strings <code>text1</code> and <code>text2</code>, return the length of their <strong>longest common subsequence</strong>.<br><br>Use bottom-up 2D DP table. O(m×n) time. Return <code>int</code>.',
+    examples:[{input:'text1="abcde", text2="ace"',output:'3'},{input:'text1="abc", text2="abc"',output:'3'}],
+    evalPrompt:'Longest Common Subsequence: given text1 and text2, return LCS length using 2D DP table. O(m*n). Return int.' },
+  { id:'hack-004', level:'Hacker', topics:['graphs','recursion'],
+    name:'Number of Islands',
+    desc:'Given a 2D grid of <code>"1"</code> (land) and <code>"0"</code> (water), return the <strong>number of islands</strong>.<br><br>Use DFS — mark visited cells. Return <code>int</code>.',
+    examples:[{input:'grid = [["1","1","0"],["0","1","0"],["0","0","1"]]',output:'2'},{input:'grid = [["1","1","1"],["1","1","1"]]',output:'1'}],
+    evalPrompt:'Number of Islands: given 2D grid of 1s and 0s, return number of islands using DFS. Mark visited cells. Return int.' },
+];
+
+const HACKER_SNIPPETS = [
+  { id:'hack-snip-001', level:'Hacker', topics:['bit manipulation'],
+    name:'Fast Inverse Square Root', file:'fast_inv_sqrt.cpp',
+    code:`float fastInvSqrt(float number) {\n    long i;\n    float x2, y;\n    const float threehalfs = 1.5F;\n    x2 = number * 0.5F;\n    y  = number;\n    i  = *(long*)&y;\n    i  = 0x5f3759df - (i >> 1);\n    y  = *(float*)&i;\n    y  = y * (threehalfs - (x2 * y * y));\n    return y;\n}` },
+  { id:'hack-snip-002', level:'Hacker', topics:['dynamic programming'],
+    name:'LCS Table', file:'lcs.cpp',
+    code:`int lcs(const string& a, const string& b) {\n    int m = a.size(), n = b.size();\n    vector<vector<int>> dp(m+1, vector<int>(n+1, 0));\n    for (int i = 1; i <= m; i++)\n        for (int j = 1; j <= n; j++)\n            dp[i][j] = (a[i-1]==b[j-1])\n                ? dp[i-1][j-1] + 1\n                : max(dp[i-1][j], dp[i][j-1]);\n    return dp[m][n];\n}` },
+];
+
+const ALL_TOPICS = [...new Set([...PROBLEMS.flatMap(p=>p.topics),...SNIPPETS.flatMap(s=>s.topics)])].sort();
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let selectedMode  = 'logic';
+let selectedLevel = 'Beginner';
+let activeTopics  = new Set();
+let currentProblem = null;
+let currentSnippet = null;
+let currentMode    = 'logic';
+let timeLimit      = 300;
+
+// ═══════════════════════════════════════
+// LANDING SCREEN
+// ═══════════════════════════════════════
+function selectMode(m) {
+  selectedMode = m;
+  document.getElementById('card-logic').classList.toggle('selected',  m==='logic');
+  document.getElementById('card-retype').classList.toggle('selected', m==='retype');
+}
+
+function selectLevel(l) {
+  selectedLevel = l;
+  const isHacker = l === 'Hacker';
+  // apply hacker class to body immediately so landing gets the theme
+  document.body.classList.toggle('hacker', isHacker);
+  ['Beginner','Intermediate','Pro','Hacker'].forEach(lv => {
+    const btn = document.getElementById('lvl-'+lv);
+    if (!btn) return;
+    const sfx = lv==='Beginner'?'-b':lv==='Intermediate'?'-i':lv==='Pro'?'-p':'-h';
+    btn.className = 'level-btn' + (lv===l ? ' selected'+sfx : '');
+  });
+}
+
+function startSession() {
+  document.getElementById('screen-landing').style.display = 'none';
+  document.getElementById('screen-app').classList.add('visible');
+  document.getElementById('titlebar-right').style.display = 'flex';
+  document.getElementById('titlebar-crumb').innerHTML = selectedMode==='logic'
+    ? selectedMode[0].toUpperCase()+selectedMode.slice(1)+' Mode <span>›</span> '+selectedLevel
+    : 'Retype Mode <span>›</span> '+selectedLevel;
+
+  currentMode = selectedMode;
+  timeLimit   = TIME_LIMITS[selectedLevel];
+
+  document.getElementById('btn-logic').classList.toggle('active',  currentMode==='logic');
+  document.getElementById('btn-retype').classList.toggle('active', currentMode==='retype');
+  document.getElementById('pill-mode').textContent  = currentMode==='logic' ? 'Logic Mode' : 'Retype Mode';
+  document.getElementById('pill-level').textContent = selectedLevel;
+  document.getElementById('section-logic').classList.toggle('active',  currentMode==='logic');
+  document.getElementById('section-retype').classList.toggle('active', currentMode==='retype');
+
+  // body.hacker already set by selectLevel — just make sure
+  document.body.classList.toggle('hacker', selectedLevel==='Hacker');
+
+  buildFilterUI();
+  activeTopics.clear();
+
+  if (currentMode==='logic') {
+    const pool = getFiltered(selectedLevel==='Hacker' ? HACKER_PROBLEMS : PROBLEMS);
+    loadProblem(pool[Math.floor(Math.random()*pool.length)]);
+  } else {
+    const pool = getFiltered(selectedLevel==='Hacker' ? HACKER_SNIPPETS : SNIPPETS);
+    loadSnippet(pool[Math.floor(Math.random()*pool.length)]);
+  }
+}
+
+function goHome() {
+  resetTimer();
+  document.body.classList.remove('hacker');
+  selectedLevel = 'Beginner';
+  selectLevel('Beginner');
+  document.getElementById('screen-landing').style.display = 'flex';
+  document.getElementById('screen-app').classList.remove('visible');
+  document.getElementById('titlebar-right').style.display = 'none';
+  document.getElementById('titlebar-crumb').innerHTML = 'Select Mode';
+}
+
+// ═══════════════════════════════════════
+// TIMER
+// ═══════════════════════════════════════
+let timerInterval=null, startTime=null, timerRunning=false, finalSeconds=0;
+
+function formatTime(s) {
+  return `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
+}
+
+function startTimer() {
+  if (timerRunning) return;
+  timerRunning=true; startTime=Date.now(); setStatus('running');
+  timerInterval = setInterval(() => {
+    const e = Math.floor((Date.now()-startTime)/1000);
+    const el = document.getElementById('timer');
+    el.textContent = formatTime(e);
+    el.classList.toggle('warn', e >= timeLimit * 0.75);
+    if (currentMode==='retype') updateLiveStats();
+    // auto-expire at time limit for logic mode
+    if (currentMode==='logic' && e >= timeLimit && timerRunning) {
+      stopTimer(); setStatus('expired');
+      document.getElementById('status-text').textContent = 'Time\'s up!';
+      document.getElementById('submit-btn').click();
+    }
+  }, 500);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval); timerRunning=false;
+  finalSeconds=Math.floor((Date.now()-startTime)/1000); return finalSeconds;
+}
+
+function resetTimer() {
+  clearInterval(timerInterval); timerRunning=false; finalSeconds=0;
+  const el=document.getElementById('timer'); if(el){el.textContent='00:00'; el.classList.remove('warn');}
+  setStatus('idle');
+}
+
+function setStatus(s) {
+  const dot=document.getElementById('status-dot'), txt=document.getElementById('status-text');
+  if(!dot) return;
+  dot.className='status-dot';
+  if(s==='running')  { dot.classList.add('running');  txt.textContent='Timer running'; }
+  else if(s==='done'){ dot.classList.add('done');     txt.textContent='Submitted'; }
+  else if(s==='expired'){ dot.classList.add('expired'); txt.textContent='Time\'s up!'; }
+  else txt.textContent='Waiting for input';
+}
+
+function updateTimeLimitDisplay() {
+  const el=document.getElementById('time-limit-val');
+  if(el) el.textContent = formatTime(timeLimit);
+}
+
+// ═══════════════════════════════════════
+// FILTER
+// ═══════════════════════════════════════
+function getActiveBank(mode) {
+  const m = mode || currentMode;
+  if (selectedLevel === 'Hacker') return m==='logic' ? HACKER_PROBLEMS : HACKER_SNIPPETS;
+  return m==='logic' ? PROBLEMS : SNIPPETS;
+}
+
+function buildFilterUI() {
+  const wrap=document.getElementById('filter-tags');
+  wrap.innerHTML='';
+  const bank = getActiveBank();
+  const levelItems = bank.filter(x=>x.level===selectedLevel);
+  const relevantTopics = [...new Set(levelItems.flatMap(x=>x.topics))].sort();
+  relevantTopics.forEach(t => {
+    const el=document.createElement('span');
+    el.className='filter-tag'+(activeTopics.has(t)?' active':'');
+    el.textContent=t;
+    el.onclick=()=>{ activeTopics.has(t)?activeTopics.delete(t):activeTopics.add(t); el.classList.toggle('active',activeTopics.has(t)); };
+    wrap.appendChild(el);
+  });
+}
+
+function getFiltered(bank) {
+  let pool = bank.filter(x => x.level === selectedLevel);
+  if (activeTopics.size) {
+    const filtered = pool.filter(x => x.topics.some(t => activeTopics.has(t)));
+    if (filtered.length) pool = filtered;
+  }
+  return pool.length ? pool : bank.filter(x=>x.level===selectedLevel);
+}
+
+function levelTag(l) {
+  return l==='Beginner'?'tag-green':l==='Intermediate'?'tag-amber':l==='Pro'?'tag-red':'tag-teal';
+}
+
+function pickRandom(bank, exclude) {
+  const pool=getFiltered(bank).filter(x=>x!==exclude);
+  return pool.length ? pool[Math.floor(Math.random()*pool.length)] : getFiltered(bank)[0];
+}
+
+function switchMode(mode) {
+  if (mode===currentMode) return;
+  currentMode=mode;
+  activeTopics.clear();
+  document.getElementById('section-logic').classList.toggle('active',  mode==='logic');
+  document.getElementById('section-retype').classList.toggle('active', mode==='retype');
+  document.getElementById('btn-logic').classList.toggle('active',  mode==='logic');
+  document.getElementById('btn-retype').classList.toggle('active', mode==='retype');
+  document.getElementById('pill-mode').textContent=mode==='logic'?'Logic Mode':'Retype Mode';
+  resetTimer();
+  buildFilterUI();
+  const bank = getActiveBank(mode);
+  if (mode==='retype') loadSnippet(pickRandom(bank, currentSnippet));
+  else loadProblem(pickRandom(bank, currentProblem));
+}
+
+function pickRandom(bank, exclude) {
+  const pool=getFiltered(bank).filter(x=>x!==exclude);
+  return pool.length ? pool[Math.floor(Math.random()*pool.length)] : getFiltered(bank)[0];
+}
+
+// ── LOAD PROBLEM / SNIPPET ──
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function loadProblem(p) {
+  currentProblem=p;
+  document.getElementById('l-prob-id').textContent=p.id;
+  document.getElementById('l-prob-level').textContent=p.level;
+  document.getElementById('l-prob-level').className='tag '+levelTag(p.level);
+  document.getElementById('l-prob-name').textContent=p.name;
+  document.getElementById('l-prob-desc').innerHTML=p.desc;
+
+  // topic tags on card header
+  const topicWrap=document.getElementById('l-prob-topics');
+  topicWrap.innerHTML=p.topics.map(t=>`<span class="tag tag-teal">${t}</span>`).join('');
+
+  const eg=document.getElementById('l-examples'); eg.innerHTML='';
+  p.examples.forEach(ex=>{
+    eg.innerHTML+=`<div class="example"><div class="example-label">Input</div><div class="example-val">${escHtml(ex.input)}</div></div><div class="example"><div class="example-label">Output</div><div class="example-val">${escHtml(ex.output)}</div></div>`;
+  });
+  document.getElementById('titlebar-crumb').innerHTML=`Logic Mode <span>›</span> ${p.level} <span>›</span> ${p.name}`;
+  document.getElementById('code-editor').value=''; updateLogicEditor();
+  document.getElementById('logic-result').style.display='none';
+  document.getElementById('error-banner').style.display='none';
+  timeLimit=TIME_LIMITS[p.level]; updateTimeLimitDisplay();
+  resetTimer();
+}
+
+function loadSnippet(s) {
+  currentSnippet=s;
+  document.getElementById('r-snip-id').textContent=s.id;
+  document.getElementById('r-snip-level').textContent=s.level;
+  document.getElementById('r-snip-level').className='tag '+levelTag(s.level);
+  document.getElementById('r-snip-name').textContent=s.name;
+  document.getElementById('r-snip-file').textContent=s.file;
+
+  // topic tags on card header
+  const topicWrap=document.getElementById('r-snip-topics');
+  topicWrap.innerHTML=s.topics.map(t=>`<span class="tag tag-teal">${t}</span>`).join('');
+
+  document.getElementById('titlebar-crumb').innerHTML=`Retype Mode <span>›</span> ${s.level} <span>›</span> ${s.name}`;
+  timeLimit=TIME_LIMITS[s.level]; updateTimeLimitDisplay();
+  initRetype();
+}
+
+document.getElementById('btn-new-problem').addEventListener('click',()=>{
+  const bank = getActiveBank();
+  if (currentMode==='logic') loadProblem(pickRandom(bank, currentProblem));
+  else loadSnippet(pickRandom(bank, currentSnippet));
+});
+document.getElementById('btn-next-problem').addEventListener('click',()=>loadProblem(pickRandom(getActiveBank('logic'), currentProblem)));
+document.getElementById('btn-next-snippet').addEventListener('click',()=>loadSnippet(pickRandom(getActiveBank('retype'), currentSnippet)));
+
+// ═══════════════════════════════════════
+// LOGIC MODE
+// ═══════════════════════════════════════
+const editor=document.getElementById('code-editor');
+const lineNums=document.getElementById('line-nums');
+
+function updateLogicEditor() {
+  const lines=editor.value.split('\n').length;
+  lineNums.textContent=Array.from({length:lines},(_,i)=>i+1).join('\n');
+  document.getElementById('line-count').textContent=lines;
+  document.getElementById('char-count').textContent=editor.value.length;
+}
+editor.addEventListener('input',()=>{ if(currentMode!=='logic') return; if(!timerRunning&&editor.value.length>0) startTimer(); updateLogicEditor(); });
+editor.addEventListener('keydown',e=>{ if(e.key==='Tab'){e.preventDefault();const s=editor.selectionStart,en=editor.selectionEnd;editor.value=editor.value.slice(0,s)+'    '+editor.value.slice(en);editor.selectionStart=editor.selectionEnd=s+4;updateLogicEditor();}});
+editor.addEventListener('scroll',()=>{ lineNums.scrollTop=editor.scrollTop; });
+
+function scoreClass(n) { return n>=70?'good':n>=40?'okay':'poor'; }
+
+function calcSpeedCoderScore(logic, seconds) {
+  const speedBonus=Math.max(0, 1-seconds/timeLimit);
+  return Math.round(logic*(0.6+0.4*speedBonus));
+}
+
+async function evaluateCode(code) {
+  const resp = await fetch('/api/evaluate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      problem: currentProblem.evalPrompt,
+      code: code
+    })
+  });
+  if (!resp.ok) {
+    const e = await resp.json().catch(() => ({}));
+    throw new Error(e?.error || `HTTP ${resp.status}`);
+  }
+  return await resp.json();
+}
+
+const submitBtn=document.getElementById('submit-btn');
+const loadingBar=document.getElementById('loading-bar');
+const errorBanner=document.getElementById('error-banner');
+
+submitBtn.addEventListener('click',async()=>{
+  const code=editor.value.trim();
+  if(!code){alert('Write some code first.');return;}
+  const elapsed=timerRunning?stopTimer():finalSeconds||0;
+  setStatus('done');
+  submitBtn.disabled=true; submitBtn.textContent='Evaluating...';
+  loadingBar.style.display='block';
+  errorBanner.style.display='none';
+  document.getElementById('logic-result').style.display='none';
+  try {
+    const result=await evaluateCode(code);
+    showLogicResult(result,elapsed);
+  } catch(err) {
+    errorBanner.textContent=`Evaluation failed: ${err.message}`;
+    errorBanner.style.display='block'; setStatus('idle');
+  } finally {
+    loadingBar.style.display='none';
+    submitBtn.disabled=false; submitBtn.textContent='Submit ↗';
+  }
+});
+
+function showLogicResult(result,seconds) {
+  const card=document.getElementById('logic-result');
+  const pass=result.pass, logic=result.logic_score??0, final=calcSpeedCoderScore(logic,seconds);
+  card.className='result-card '+(pass?'pass':'fail');
+  document.getElementById('l-verdict-icon').textContent=pass?'✅':'❌';
+  document.getElementById('l-verdict-text').textContent=pass?'Accepted':'Not Accepted';
+  document.getElementById('l-verdict-sub').textContent=`Completed in ${formatTime(seconds)}`;
+  const rt=document.getElementById('l-res-time');  rt.textContent=formatTime(seconds); rt.className='stat-value';
+  const rl=document.getElementById('l-res-logic'); rl.textContent=logic; rl.className='stat-value '+scoreClass(logic);
+  const rf=document.getElementById('l-res-final'); rf.textContent=final; rf.className='stat-value '+scoreClass(final);
+  document.getElementById('l-feedback').textContent=result.feedback||'—';
+  card.style.display='block';
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+document.getElementById('logic-try-again').addEventListener('click',()=>{
+  editor.value=''; updateLogicEditor();
+  document.getElementById('logic-result').style.display='none';
+  errorBanner.style.display='none';
+  resetTimer(); editor.focus();
+});
+
+// ═══════════════════════════════════════
+// RETYPE MODE  — FIXED
+// ═══════════════════════════════════════
+// Correctness: compare typed[i] === snippet[i] for every char typed.
+// Errors counted only on new characters typed (not backspace).
+// Scroll: retype-scroll-zone is the scrollable container.
+// Line nums scroll in sync.
+// The textarea height = display height so it always covers the full content.
+
+let rtErrors=0, rtTyped=0, rtComplete=false, rtPrevLen=0;
+
+function initRetype() {
+  rtErrors=0; rtTyped=0; rtComplete=false; rtPrevLen=0;
+  const input=document.getElementById('retype-input');
+  input.value=''; input.disabled=false;
+  renderDisplay('');
+  syncRetypeHeight();
+  updateRetypeLineNums(1);
+  document.getElementById('live-wpm').textContent='—';
+  document.getElementById('live-acc').textContent='—';
+  document.getElementById('live-errors').textContent='0';
+  document.getElementById('retype-result').style.display='none';
+  document.getElementById('retype-progress-fill').style.width='0%';
+  resetTimer();
+  setTimeout(()=>input.focus(),50);
+}
+
+function renderDisplay(typed) {
+  const snippet=currentSnippet.code;
+  let html='';
+  for(let i=0;i<snippet.length;i++){
+    const raw=snippet[i];
+    // render newlines as actual newlines inside the pre-formatted display
+    if(raw==='\n'){
+      if(i<typed.length){
+        // correct or incorrect newline — mark and emit newline
+        html += typed[i]==='\n'
+          ? `<span class="ch-correct">\n</span>`
+          : `<span class="ch-error">↵</span>\n`;
+      } else if(i===typed.length){
+        html += `<span class="ch-cursor ch-pending">\n</span>`;
+      } else {
+        html += `<span class="ch-pending">\n</span>`;
+      }
+      continue;
+    }
+    const ch = raw===' ' ? '\u00a0' : escHtml(raw);
+    if(i<typed.length){
+      html += typed[i]===raw
+        ? `<span class="ch-correct">${ch}</span>`
+        : `<span class="ch-error">${ch}</span>`;
+    } else if(i===typed.length){
+      html += `<span class="ch-cursor ch-pending">${ch}</span>`;
+    } else {
+      html += `<span class="ch-pending">${ch}</span>`;
+    }
+  }
+  document.getElementById('retype-display').innerHTML=html;
+}
+
+function syncRetypeHeight() {
+  // Make textarea same height as display so it overlays perfectly
+  const display=document.getElementById('retype-display');
+  const input=document.getElementById('retype-input');
+  // Let display size naturally, then match textarea
+  requestAnimationFrame(()=>{
+    const h=display.offsetHeight;
+    input.style.height=(h>0?h:200)+'px';
+  });
+}
+
+function updateRetypeLineNums(lines) {
+  document.getElementById('retype-line-nums').textContent=
+    Array.from({length:lines},(_,i)=>i+1).join('\n');
+}
+
+// Sync line-nums scroll with scroll-zone
+document.getElementById('retype-scroll-zone').addEventListener('scroll', function(){
+  document.getElementById('retype-line-nums').scrollTop=this.scrollTop;
+});
+
+function calcWPM(sec){ if(sec<1)return 0; return Math.round((rtTyped/5)/(sec/60)); }
+function calcAcc(){ if(rtTyped===0)return 100; return Math.max(0,Math.round(((rtTyped-rtErrors)/rtTyped)*100)); }
+
+function updateLiveStats(){
+  if(!timerRunning)return;
+  const e=Math.floor((Date.now()-startTime)/1000);
+  document.getElementById('live-wpm').textContent=calcWPM(e);
+  document.getElementById('live-acc').textContent=calcAcc()+'%';
+  document.getElementById('live-errors').textContent=rtErrors;
+}
+
+const retypeInput=document.getElementById('retype-input');
+retypeInput.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='v'){e.preventDefault();return;} });
+
+retypeInput.addEventListener('input',()=>{
+  if(currentMode!=='retype'||rtComplete) return;
+  const typed=retypeInput.value;
+  const snippet=currentSnippet.code;
+
+  if(!timerRunning&&typed.length>0) startTimer();
+
+  // Only count errors on newly typed characters (not on delete/backspace)
+  if(typed.length > rtPrevLen){
+    // user typed a new char
+    const idx=typed.length-1;
+    if(typed[idx]!==snippet[idx]) rtErrors++;
+  }
+  rtPrevLen=typed.length;
+  rtTyped=Math.max(rtTyped, typed.length); // keep max reached
+
+  renderDisplay(typed);
+  syncRetypeHeight();
+
+  const pct=Math.min(100,Math.round((typed.length/snippet.length)*100));
+  document.getElementById('retype-progress-fill').style.width=pct+'%';
+  updateRetypeLineNums(typed.split('\n').length);
+  updateLiveStats();
+
+  // completion: typed all characters
+  if(typed.length>=snippet.length){
+    rtComplete=true;
+    const elapsed=stopTimer();
+    showRetypeResult(elapsed);
+  }
+});
+
+function showRetypeResult(seconds){
+  document.getElementById('retype-input').disabled=true;
+  setStatus('done');
+  const wpm=calcWPM(seconds), acc=calcAcc(), errs=rtErrors;
+  const good=acc>=90;
+  const card=document.getElementById('retype-result');
+  card.className='result-card '+(good?'pass':'fail');
+  document.getElementById('r-verdict-icon').textContent=good?'✅':'⚠️';
+  document.getElementById('r-verdict-text').textContent=good?'Great Job!':'Keep Practicing';
+  document.getElementById('r-verdict-sub').textContent=`Finished in ${formatTime(seconds)}`;
+  const rw=document.getElementById('r-wpm');    rw.textContent=wpm;     rw.className='stat-value '+scoreClass(Math.min(wpm,100));
+  const ra=document.getElementById('r-acc');    ra.textContent=acc+'%'; ra.className='stat-value '+(acc>=90?'good':acc>=70?'okay':'poor');
+  const re=document.getElementById('r-errors'); re.textContent=errs;    re.className='stat-value '+(errs===0?'good':errs<=5?'okay':'poor');
+  let fb='';
+  if(errs===0)    fb=`Perfect accuracy at ${wpm} WPM — flawless run.`;
+  else if(acc>=90)fb=`${acc}% accuracy at ${wpm} WPM — solid. Watch those ${errs} error${errs>1?'s':''}.`;
+  else if(acc>=70)fb=`${acc}% accuracy — slow down and focus on precision over speed.`;
+  else            fb=`${acc}% accuracy — too many errors. Read each character carefully before typing.`;
+  document.getElementById('r-feedback').textContent=fb;
+  card.style.display='block';
+  card.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+document.getElementById('retype-try-again').addEventListener('click',()=>{ resetTimer(); initRetype(); });
+</script>
+</body>
+</html>
